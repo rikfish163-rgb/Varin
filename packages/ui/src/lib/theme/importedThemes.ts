@@ -6,6 +6,7 @@ import { parseCodexTheme } from './codexTheme';
 
 export const IMPORTED_THEMES_STORAGE_KEY = 'varin.imported-themes.v1';
 const MAX_THEME_BYTES = 1024 * 1024;
+const CODEX_CLIPBOARD_PREFIX = 'codex-theme-v1:';
 
 // Themes produce CSS variables. Do not permit JSON to break out of a CSS value.
 function safeCssValues(value: unknown): boolean {
@@ -19,13 +20,23 @@ const recordCodexTheme = (object: Record<string, unknown>): Theme | undefined =>
 
 export function parseImportedTheme(raw: string): Theme {
   if (new TextEncoder().encode(raw).length > MAX_THEME_BYTES) throw new Error('size');
+  const source = raw.trim();
+  const codexClipboard = source.startsWith(CODEX_CLIPBOARD_PREFIX);
   let input: unknown;
-  try { input = JSON.parse(raw); } catch { throw new Error('json'); }
+  try { input = JSON.parse(codexClipboard ? source.slice(CODEX_CLIPBOARD_PREFIX.length) : source); } catch { throw new Error('json'); }
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('format');
   const object = input as Record<string, unknown>;
   let theme: Theme;
   if (isValidTheme(input)) {
     theme = input;
+  } else if (codexClipboard || (object.codeThemeId !== undefined && object.theme !== undefined)) {
+    if (!object.theme || typeof object.theme !== 'object' || Array.isArray(object.theme)) throw new Error('format');
+    const codeThemeId = typeof object.codeThemeId === 'string' ? object.codeThemeId.trim() : '';
+    const name = typeof object.name === 'string' && object.name.trim() ? object.name.trim()
+      : codeThemeId ? codeThemeId.replace(/[-_]+/g, ' ').replace(/\b[a-z]/g, letter => letter.toUpperCase()) : 'Codex theme';
+    const codexTheme = recordCodexTheme({ ...object, name, chromeTheme: object.theme });
+    if (!codexTheme) throw new Error('format');
+    theme = codexTheme;
   } else if (object.chromeTheme !== undefined || (object.surface !== undefined && object.ink !== undefined)) {
     const codexTheme = recordCodexTheme(object);
     if (!codexTheme) throw new Error('format');

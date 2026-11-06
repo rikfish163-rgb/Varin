@@ -28,6 +28,20 @@ describe('importing themes', () => {
 });
 
 describe('Codex theme compatibility', () => {
+  test('imports the exact codex-theme-v1 clipboard format', () => {
+    const copied = String.raw`codex-theme-v1:{"codeThemeId":"absolutely","theme":{"accent":"#da7756","contrast":60,"fonts":{"code":"JetBrains Mono","ui":"Figtree, \"Noto Sans CJK SC\"","content":"\"Source Serif 4\""},"ink":"#1d1b16","opaqueWindows":true,"semanticColors":{"diffAdded":"#00c853","diffRemoved":"#ff5f38","skill":"#cc7d5e"},"surface":"#f5f3ee"},"variant":"light"}`;
+    const theme = parseImportedTheme(` \n${copied}\n `);
+    expect(theme.metadata.name).toBe('Absolutely');
+    expect(theme.metadata.variant).toBe('light');
+    expect(theme.colors.primary.base).toBe('#da7756');
+    expect(theme.colors.surface.background).toBe('#f5f3ee');
+    expect(theme.colors.surface.foreground).toBe('#1d1b16');
+    expect(theme.colors.syntax.highlights).toMatchObject({ diffAdded: '#00c853', diffRemoved: '#ff5f38' });
+    expect(theme.config?.fonts).toMatchObject({ sans: 'Figtree, "Noto Sans CJK SC"', mono: 'JetBrains Mono' });
+    expect(parseImportedTheme(copied.slice('codex-theme-v1:'.length)).colors).toEqual(theme.colors);
+    expect(() => parseImportedTheme('codex-theme-v1:{"codeThemeId":"absolutely","theme":null}')).toThrow('format');
+  });
+
   test('imports the nested Codex chrome and TextMate settings from a copied theme', () => {
     const theme = parseImportedTheme(JSON.stringify({
       name: 'Absolutely', variant: 'light',
